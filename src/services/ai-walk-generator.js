@@ -2,9 +2,22 @@ import OpenAI from 'openai';
 import fs from 'fs/promises';
 import path from 'path';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+let openaiClient = null;
+
+/**
+ * Get or create OpenAI client (lazy initialization)
+ */
+function getOpenAIClient() {
+  if (!openaiClient) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY environment variable is not set');
+    }
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+  }
+  return openaiClient;
+}
 
 /**
  * Get list of pubs that have already been posted
@@ -45,8 +58,9 @@ export async function generateWalk(maxAttempts = 5, attempt = 1) {
   const prompt = buildWalkGenerationPrompt(usedPubs);
   
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // Latest and most capable model
+      model: "gpt-5", // Latest and most capable model
       messages: [
         {
           role: "system",

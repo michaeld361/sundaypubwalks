@@ -3,9 +3,22 @@ import fs from 'fs/promises';
 import path from 'path';
 import axios from 'axios';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+let openaiClient = null;
+
+/**
+ * Get or create OpenAI client (lazy initialization)
+ */
+function getOpenAIClient() {
+  if (!openaiClient) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY environment variable is not set');
+    }
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+  }
+  return openaiClient;
+}
 
 /**
  * Generate an illustration for the walk
@@ -16,8 +29,9 @@ export async function generateIllustration(walk, weather) {
   console.log('Generating image with prompt:', prompt);
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.images.generate({
-      model: "dall-e-3",
+      model: "gpt-image-1",
       prompt: prompt,
       n: 1,
       size: "1024x1792", // 9:16 aspect ratio
