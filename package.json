@@ -1,0 +1,29 @@
+{
+  "name": "sunday-pub-walks",
+  "version": "2.0.0",
+  "description": "Fully AI-generated Instagram bot that creates unique Sunday pub walks using GPT-4 and DALL-E",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node src/test-post.js",
+    "verify": "node src/verify-setup.js",
+    "show-pubs": "node src/show-pubs.js"
+  },
+  "keywords": [
+    "instagram",
+    "walks",
+    "pubs",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "node-cron": "^3.0.3",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "openai": "^4.20.1",
+    "uuid": "^9.0.1"
+  }
+}
