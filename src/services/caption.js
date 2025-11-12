@@ -28,31 +28,32 @@ export function buildCaption({ walk, weather }) {
     .map(h => `• ${h}`)
     .join('\n');
 
-  // Format directions
+  // Format directions with an extra line break between steps
   const directionsText = (directions || [])
     .map((step, i) => `${i + 1}. ${step}`)
-    .join('\n');
+    .join('\n\n');
 
   // Base caption (no hashtags yet)
   const baseCaption = `🥾 SUNDAY PUB WALK: ${walk_title}
 
-📍 Area: ${area_short}
-⏱️ About ${duration_minutes} mins · ${distance_km.toFixed(1)} km
-🍻 Pub finish: ${end_pub_name}${end_pub_handle ? ` ${end_pub_handle}` : ''}
+📍 Where: ${area_short}
+⏱️ Time & distance: ~${duration_minutes} mins · ${distance_km.toFixed(1)} km
+🍻 Finish: ${end_pub_name}${end_pub_handle ? ` (${end_pub_handle})` : ''}
 
-🌤 This Sunday's weather in ${area_short}:
+🌤 Sunday forecast for ${area_short}:
 ${weather.summary}
 Tip: ${weather.tip}
 
-Why you'll love it:
+✨ Why you'll love it
 ${highlightLines}
 
-Perfect for: ${best_for}
+💡 Perfect for
+${best_for}
 
 Tag your Sunday crew & save this for later ❤️
 
 ————————
-🗺️ How to do the walk:
+🗺️ How to do the walk
 
 Start at: ${start_point}
 

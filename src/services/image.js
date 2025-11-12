@@ -36,8 +36,9 @@ export async function generateIllustration(walk, weather) {
       model: "gpt-image-1",
       prompt,
       n: 1,
-      size: "1024x1536",       // 9:16 aspect ratio
-      quality: "high",         // Use high quality!
+      // Change to square so feed posts don't get cropped
+      size: "1024x1024",      // 1:1 aspect ratio for Instagram feed
+      quality: "high",
       output_format: "png"
     });
 
@@ -48,7 +49,6 @@ export async function generateIllustration(walk, weather) {
     const imagePath = await saveBase64Image(imageBase64, walk.slug);
     
     // Build public URL that Instagram can access
-    // With Render Starter (always-on), this URL is always accessible!
     const baseUrl = process.env.PUBLIC_URL || process.env.BASE_URL || 'https://sundaypubwalks.onrender.com';
     const filename = path.basename(imagePath);
     const publicUrl = `${baseUrl}/images/${filename}`;
@@ -83,7 +83,7 @@ Rich greens and blues, warm light in the pub windows, clean shapes, minimal shad
 stylised figures with no facial details. \
 Weather feels like ${weather.summary.toLowerCase()}. \
 Seasonal vibe: ${seasonHint} (${seasonality}). \
-Portrait orientation, full-bleed, suitable for an Instagram post. \
+Square format, 1:1 aspect ratio, centred composition, full-bleed, suitable for an Instagram feed post. \
 British countryside aesthetic with warm, inviting atmosphere.`;
 }
 
