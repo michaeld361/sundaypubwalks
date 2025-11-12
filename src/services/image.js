@@ -1,7 +1,6 @@
 import OpenAI from 'openai';
 import fs from 'fs/promises';
 import path from 'path';
-import axios from 'axios';
 
 let openaiClient = null;
 
@@ -30,23 +29,27 @@ export async function generateIllustration(walk, weather) {
 
   try {
     const openai = getOpenAIClient();
+
+    // gpt-image-1: no `style`, returns base64 as `b64_json`
     const response = await openai.images.generate({
       model: "gpt-image-1",
-      prompt: prompt,
+      prompt,
       n: 1,
-      size: "1024x1792", // 9:16 aspect ratio
-      quality: "standard",
-      style: "natural"
+      size: "1024x1536",       // 9:16 aspect ratio
+      quality: "medium",       // valid values: low | medium | high
+      output_format: "png"     // make sure we get PNG bytes
     });
 
-    const imageUrl = response.data[0].url;
-    console.log('Image generated successfully:', imageUrl);
+    const imageBase64 = response.data[0].b64_json;
 
-    // Download and save the image locally
-    const imagePath = await downloadImage(imageUrl, walk.slug);
-    
+    // Save the base64 image locally
+    const imagePath = await saveBase64Image(imageBase64, walk.slug);
+    const fileUrl = `file://${imagePath}`;
+
+    console.log('Image generated and saved to:', imagePath);
+
     return {
-      url: imageUrl,
+      url: fileUrl,      // previously a remote URL; now a file:// URL
       localPath: imagePath
     };
 
@@ -88,9 +91,9 @@ function getSeasonHint(date = new Date()) {
 }
 
 /**
- * Download image from URL and save locally
+ * Save a base64-encoded image to disk
  */
-async function downloadImage(url, slug) {
+async function saveBase64Image(base64Data, slug) {
   const timestamp = Date.now();
   const filename = `${slug}-${timestamp}.png`;
   const dir = path.join(process.cwd(), 'generated');
@@ -99,16 +102,10 @@ async function downloadImage(url, slug) {
   // Create directory if it doesn't exist
   await fs.mkdir(dir, { recursive: true });
 
-  // Download image
-  const response = await axios({
-    method: 'get',
-    url: url,
-    responseType: 'arraybuffer'
-  });
+  // Decode base64 -> Buffer and write file
+  const buffer = Buffer.from(base64Data, 'base64');
+  await fs.writeFile(filepath, buffer);
 
-  // Save to file
-  await fs.writeFile(filepath, response.data);
   console.log('Image saved to:', filepath);
-
   return filepath;
 }
