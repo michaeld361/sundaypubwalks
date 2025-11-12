@@ -29,38 +29,51 @@ const PORT = process.env.PORT || 3000;
 const TRIGGER_SECRET = process.env.TRIGGER_SECRET || 'change-me-in-production';
 
 /**
+ * Core function that generates all content for a Sunday pub walk post.
+ * Used by both the real publisher and the preview endpoint.
+ */
+async function generateSundayWalkContent() {
+  console.log('\n=== Generating Sunday Pub Walk content ===');
+  console.log(`Time: ${new Date().toISOString()}`);
+
+  // 1. Generate a walk with AI
+  console.log('\n[1/5] Generating walk with AI...');
+  const walk = await generateBestWalk(1); // Generate 1 walk (can increase for more options)
+
+  // 2. Fetch weather
+  console.log('\n[2/5] Fetching weather...');
+  const weather = await fetchWeatherSummary(walk);
+  console.log('Weather:', weather);
+
+  // 3. Build caption
+  console.log('\n[3/5] Building caption...');
+  const caption = buildCaption({ walk, weather });
+  const isValid = validateCaption(caption);
+
+  if (!isValid) {
+    console.warn('Caption may be too long, but continuing...');
+  }
+
+  console.log('Caption preview (first 200 chars):');
+  console.log(caption.substring(0, 200) + '...\n');
+
+  // 4. Generate image
+  console.log('[4/5] Generating illustration...');
+  const image = await generateIllustration(walk, weather);
+  console.log('Image generated:', image.url);
+
+  return { walk, weather, caption, image };
+}
+
+/**
  * Main job that creates and publishes a Sunday pub walk post
  */
 async function publishSundayWalkPost() {
-  console.log('\n=== Starting Sunday Pub Walk post generation ===');
+  console.log('\n=== Starting Sunday Pub Walk post generation (PUBLISH) ===');
   console.log(`Time: ${new Date().toISOString()}`);
 
   try {
-    // 1. Generate a walk with AI
-    console.log('\n[1/5] Generating walk with AI...');
-    const walk = await generateBestWalk(1); // Generate 1 walk (can increase for more options)
-
-    // 2. Fetch weather
-    console.log('\n[2/5] Fetching weather...');
-    const weather = await fetchWeatherSummary(walk);
-    console.log('Weather:', weather);
-
-    // 3. Build caption
-    console.log('\n[3/5] Building caption...');
-    const caption = buildCaption({ walk, weather });
-    const isValid = validateCaption(caption);
-
-    if (!isValid) {
-      console.warn('Caption may be too long, but continuing...');
-    }
-
-    console.log('Caption preview (first 200 chars):');
-    console.log(caption.substring(0, 200) + '...\n');
-
-    // 4. Generate image
-    console.log('[4/5] Generating illustration...');
-    const image = await generateIllustration(walk, weather);
-    console.log('Image generated:', image.url);
+    const { walk, weather, caption, image } = await generateSundayWalkContent();
 
     // 5. Post to Instagram
     console.log('\n[5/5] Posting to Instagram...');
@@ -111,14 +124,55 @@ async function publishSundayWalkPost() {
     console.error('\n❌ Error publishing post:', error.message);
     console.error(error);
 
-    // In production, you might want to send alerts here
-    // e.g., email, Slack notification, etc.
-
     throw error;
   }
 }
 
-// Create simple HTTP server for Render health checks, manual triggers, and images
+/**
+ * Preview job that generates a full Instagram post
+ * but DOES NOT publish it. Instead, it logs a neatly
+ * formatted block you can copy/paste into Instagram.
+ */
+async function previewSundayWalkPost() {
+  console.log('\n=== INSTAGRAM POST PREVIEW (NO PUBLISH) ===');
+  console.log(`Time: ${new Date().toISOString()}`);
+
+  try {
+    const { walk, weather, caption, image } = await generateSundayWalkContent();
+
+    // Optional: save caption to file for reference
+    const captionPath = image.localPath.replace(/\.png$/i, '-caption-preview.txt');
+    await fsp.writeFile(captionPath, caption, 'utf8');
+
+    // Neatly formatted console output for manual posting
+    console.log('\n================= INSTAGRAM POST PREVIEW =================\n');
+
+    console.log('📸 IMAGE');
+    console.log('Upload this image (or download it from this URL):');
+    console.log(image.url);
+    console.log('\n');
+
+    console.log('📝 CAPTION (copy everything below into Instagram):\n');
+    console.log(caption);
+    console.log('\n================= END INSTAGRAM POST PREVIEW =============\n');
+
+    console.log('Preview caption saved to:', captionPath);
+
+    return {
+      success: true,
+      mode: 'preview',
+      walk: walk.walk_title,
+      imageUrl: image.url,
+      captionPath
+    };
+  } catch (error) {
+    console.error('\n❌ Error generating preview:', error.message);
+    console.error(error);
+    throw error;
+  }
+}
+
+// Create simple HTTP server for Render health checks, manual triggers, preview, and images
 const server = http.createServer(async (req, res) => {
   try {
     // Parse URL once
@@ -135,7 +189,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // 2) Manual trigger endpoint
+    // 2) Manual trigger endpoint (actual publish)
     if (url.pathname === '/trigger') {
       const providedSecret = url.searchParams.get('secret');
 
@@ -152,19 +206,48 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         status: 'triggered',
+        mode: 'publish',
         message: 'Post generation started! Check logs for progress.'
       }));
 
       // Run the post job asynchronously
-      console.log('🎯 Manual trigger received!');
+      console.log('🎯 Manual trigger received (PUBLISH)!');
       publishSundayWalkPost().catch(error => {
-        console.error('Manual trigger failed:', error);
+        console.error('Manual trigger (publish) failed:', error);
       });
 
       return;
     }
 
-    // 3) Serve generated images from /images/*
+    // 3) Preview endpoint (no publish, console output for manual posting)
+    if (url.pathname === '/preview') {
+      const providedSecret = url.searchParams.get('secret');
+
+      if (providedSecret !== TRIGGER_SECRET) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'Unauthorized',
+          message: 'Invalid or missing secret token'
+        }));
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'triggered',
+        mode: 'preview',
+        message: 'Preview generation started! Check logs for the full Instagram post preview.'
+      }));
+
+      console.log('🎯 Manual trigger received (PREVIEW only)!');
+      previewSundayWalkPost().catch(error => {
+        console.error('Manual trigger (preview) failed:', error);
+      });
+
+      return;
+    }
+
+    // 4) Serve generated images from /images/*
     if (url.pathname.startsWith('/images/')) {
       const filename = path.basename(url.pathname); // strip any dirs
       const filePath = path.join(GENERATED_DIR, filename);
@@ -215,7 +298,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // 4) Default response (simple HTML status page)
+    // 5) Default response (simple HTML status page)
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end(`
       <!DOCTYPE html>
@@ -259,13 +342,19 @@ const server = http.createServer(async (req, res) => {
         <h2>Endpoints:</h2>
         <ul>
           <li><code>/health</code> - Health check</li>
-          <li><code>/trigger?secret=YOUR_SECRET</code> - Manual trigger</li>
+          <li><code>/trigger?secret=YOUR_SECRET</code> - Manually generate & <strong>publish</strong> a post</li>
+          <li><code>/preview?secret=YOUR_SECRET</code> - Manually generate a <strong>preview only</strong> (no publish, logs full caption & image URL)</li>
           <li><code>/images/&lt;filename&gt;</code> - Generated images</li>
         </ul>
         
         <p>
-          To manually trigger a post, visit:<br>
+          To manually trigger a publish, visit:<br>
           <code>/trigger?secret=YOUR_SECRET</code>
+        </p>
+
+        <p>
+          To manually generate a preview-only post (no publish), visit:<br>
+          <code>/preview?secret=YOUR_SECRET</code>
         </p>
         
         <p>
@@ -343,4 +432,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 // Export for testing
-export { publishSundayWalkPost, startScheduler };
+export { publishSundayWalkPost, previewSundayWalkPost, startScheduler };
