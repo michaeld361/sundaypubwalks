@@ -25,28 +25,30 @@ function getOpenAIClient() {
 export async function generateIllustration(walk, weather) {
   const prompt = buildImagePrompt(walk, weather);
   
-  console.log('Generating image with prompt:', prompt);
+  console.log('Generating image with gpt-image-1...');
+  console.log('Prompt:', prompt);
 
   try {
     const openai = getOpenAIClient();
 
-    // Use gpt-image-1 for better quality
+    // Use gpt-image-1 for superior quality
     const response = await openai.images.generate({
       model: "gpt-image-1",
       prompt,
       n: 1,
       size: "1024x1536",       // 9:16 aspect ratio
-      quality: "medium",       // valid values: low | medium | high
+      quality: "high",         // Use high quality!
       output_format: "png"
     });
 
     const imageBase64 = response.data[0].b64_json;
-    console.log('Image generated successfully with gpt-image-1');
+    console.log('✅ Image generated successfully with gpt-image-1');
 
     // Save the base64 image locally
     const imagePath = await saveBase64Image(imageBase64, walk.slug);
     
     // Build public URL that Instagram can access
+    // With Render Starter (always-on), this URL is always accessible!
     const baseUrl = process.env.PUBLIC_URL || process.env.BASE_URL || 'https://sundaypubwalks.onrender.com';
     const filename = path.basename(imagePath);
     const publicUrl = `${baseUrl}/images/${filename}`;
