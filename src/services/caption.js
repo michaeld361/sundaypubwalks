@@ -208,7 +208,7 @@ function toHashtag(value) {
  * Validate caption length (Instagram has a 2,200 character limit)
  */
 export function validateCaption(caption) {
-  const maxLength = 2200;
+  const maxLength = 2100;
 
   if (caption.length > maxLength) {
     console.warn(`Caption is ${caption.length} characters (max ${maxLength}). Consider shortening.`);

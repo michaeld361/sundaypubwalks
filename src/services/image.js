@@ -30,27 +30,33 @@ export async function generateIllustration(walk, weather) {
   try {
     const openai = getOpenAIClient();
 
-    // gpt-image-1: no `style`, returns base64 as `b64_json`
+    // Use gpt-image-1 for better quality
     const response = await openai.images.generate({
       model: "gpt-image-1",
       prompt,
       n: 1,
       size: "1024x1536",       // 9:16 aspect ratio
       quality: "medium",       // valid values: low | medium | high
-      output_format: "png"     // make sure we get PNG bytes
+      output_format: "png"
     });
 
     const imageBase64 = response.data[0].b64_json;
+    console.log('Image generated successfully with gpt-image-1');
 
     // Save the base64 image locally
     const imagePath = await saveBase64Image(imageBase64, walk.slug);
-    const fileUrl = `file://${imagePath}`;
+    
+    // Build public URL that Instagram can access
+    const baseUrl = process.env.PUBLIC_URL || process.env.BASE_URL || 'https://sundaypubwalks.onrender.com';
+    const filename = path.basename(imagePath);
+    const publicUrl = `${baseUrl}/images/${filename}`;
 
-    console.log('Image generated and saved to:', imagePath);
+    console.log('Image saved to:', imagePath);
+    console.log('Public URL:', publicUrl);
 
     return {
-      url: fileUrl,      // previously a remote URL; now a file:// URL
-      localPath: imagePath
+      url: publicUrl,      // Public URL for Instagram to fetch
+      localPath: imagePath // Local path for backup
     };
 
   } catch (error) {
@@ -106,6 +112,5 @@ async function saveBase64Image(base64Data, slug) {
   const buffer = Buffer.from(base64Data, 'base64');
   await fs.writeFile(filepath, buffer);
 
-  console.log('Image saved to:', filepath);
   return filepath;
 }
